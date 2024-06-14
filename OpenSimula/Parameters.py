@@ -47,6 +47,56 @@ class Parameter(Child):
     def _get_error_header_(self):
         return f'Error: {self.parent.parameter("name").value}->{self.key}. '
 
+    def _cast_to_bool_(self, input_value):
+        if isinstance(input_value, bool):
+            return (input_value, 'ok')
+        elif isinstance(input_value, str):
+            if (input_value == 'True'):
+                return (True, 'ok')
+            elif (input_value == 'False'):
+                return (False, 'ok')
+            else:
+                return (True, f"{input_value} cannot be converted to boolean.")
+        else:
+            return (True, f"{str(input_value)} is not boolean.")
+
+    def _cast_to_int_(self, input_value):
+        if isinstance(input_value, int):
+            return (input_value, 'ok')
+        elif isinstance(input_value, str):
+            try:
+                number = int(input_value)
+                return (number, 'ok')
+            except ValueError:
+                return (0, f"{input_value} cannot be converted to int.")
+        else:
+            return (0, f"{str(input_value)} is not int.")
+
+    def _cast_to_float_(self, input_value):
+        if isinstance(input_value, float):
+            return (input_value, 'ok')
+        elif isinstance(input_value, int):
+            return (float(input_value), 'ok')
+        elif isinstance(input_value, str):
+            try:
+                number = float(input_value)
+                return (number, 'ok')
+            except ValueError:
+                return (0.0, f"{input_value} cannot be converted to float.")
+        else:
+            return (0.0, f"{str(input_value)} is not float.")
+
+    def _cast_to_string_list_(self, input_strig):
+        if isinstance(input_strig, str):
+            line = input_strig.strip()
+            if line[0] == "[" and line[-1] == "]":
+                stripped = [s.strip() for s in line[1:-1].split(',')]
+                return (stripped, 'ok')
+            else:
+                return ([], f"{str(input_strig)} do not start with '[' or finish with ']'.")
+        else:
+            return ([], f"{str(input_strig)} is not string.")
+
 
 # _____________ Parameter_boolean ___________________________
 
@@ -61,11 +111,11 @@ class Parameter_boolean(Parameter):
 
     @value.setter
     def value(self, value):
-        if isinstance(value, bool):
-            self._value_ = value
+        val, msg = self._cast_to_bool_(value)
+        if (msg == 'ok'):
+            self._value_ = val
         else:
-            msg = self._get_error_header_()+f"{str(value)} is not boolean."
-            self._sim_.print(msg)
+            self._sim_.print(self._get_error_header_()+msg)
 
 
 class Parameter_boolean_list(Parameter):
@@ -78,17 +128,21 @@ class Parameter_boolean_list(Parameter):
 
     @value.setter
     def value(self, value):
-        try:
-            if not isinstance(value, list):
-                booleans = [bool(value)]
+        if not isinstance(value, list):
+            val, msg = self._cast_to_string_list_(value)
+            if (msg == 'ok'):
+                value = val
             else:
-                booleans = []
-                for n in value:
-                    booleans.append(bool(n))
-                self._value_ = booleans
-        except ValueError as error:
-            msg = self._get_error_header_()+f"{str(error)}"
-            self._sim_.print(msg)
+                self._sim_.print(self._get_error_header_()+msg)
+                return
+        # Is a list
+        final_values = []
+        for n in value:
+            val, msg = self._cast_to_bool_(n)
+            final_values.append(val)
+            if (msg != 'ok'):
+                self._sim_.print(self._get_error_header_()+msg)
+        self._value_ = final_values
 
 
 # _____________ Parameter_string ___________________________
@@ -118,7 +172,11 @@ class Parameter_string_list(Parameter):
     @value.setter
     def value(self, value):
         if not isinstance(value, list):
-            self._value_ = [str(value)]
+            val, msg = self._cast_to_string_list_(value)
+            if (msg == 'ok'):
+                self._value_ = val
+            else:
+                self._sim_.print(self._get_error_header_()+msg)
         else:
             for el in value:
                 el = str(el)
@@ -145,11 +203,11 @@ class Parameter_int(Parameter):
 
     @value.setter
     def value(self, value):
-        if isinstance(value, (int)):
-            self._value_ = value
+        val, msg = self._cast_to_int_(value)
+        if (msg == 'ok'):
+            self._value_ = val
         else:
-            msg = self._get_error_header_()+f"{str(value)} is not integer."
-            self._sim_.print(msg)
+            self._sim_.print(self._get_error_header_()+msg)
 
     def info(self):
         return self.key + ": " + str(self.value) + " [" + self._unit_ + "]"
@@ -180,17 +238,21 @@ class Parameter_int_list(Parameter):
 
     @value.setter
     def value(self, value):
-        try:
-            if not isinstance(value, list):
-                integers = [int(value)]
+        if not isinstance(value, list):
+            val, msg = self._cast_to_string_list_(value)
+            if (msg == 'ok'):
+                value = val
             else:
-                integers = []
-                for n in value:
-                    integers.append(int(n))
-                self._value_ = integers
-        except ValueError as error:
-            msg = self._get_error_header_()+f"{str(error)}"
-            self._sim_.print(msg)
+                self._sim_.print(self._get_error_header_()+msg)
+                return
+        # Is a list
+        final_values = []
+        for n in value:
+            val, msg = self._cast_to_int_(n)
+            final_values.append(val)
+            if (msg != 'ok'):
+                self._sim_.print(self._get_error_header_()+msg)
+        self._value_ = final_values
 
     def check(self):
         errors = []
@@ -219,11 +281,11 @@ class Parameter_float(Parameter_int):
 
     @value.setter
     def value(self, value):
-        try:
-            self._value_ = float(value)
-        except ValueError as error:
-            msg = self._get_error_header_()+f"{str(error)}"
-            self._sim_.print(msg)
+        val, msg = self._cast_to_float_(value)
+        if (msg == 'ok'):
+            self._value_ = val
+        else:
+            self._sim_.print(self._get_error_header_()+msg)
 
     def check(self):
         if self.value < self._min_ or self.value > self._max_:
@@ -245,17 +307,21 @@ class Parameter_float_list(Parameter_int_list):
 
     @value.setter
     def value(self, value):
-        try:
-            if not isinstance(value, list):
-                flotante = [float(value)]
+        if not isinstance(value, list):
+            val, msg = self._cast_to_string_list_(value)
+            if (msg == 'ok'):
+                value = val
             else:
-                flotante = []
-                for n in value:
-                    flotante.append(float(n))
-            self._value_ = flotante
-        except ValueError as error:
-            msg = self._get_error_header_()+f"{str(error)}"
-            self._sim_.print(msg)
+                self._sim_.print(self._get_error_header_()+msg)
+                return
+        # Is a list
+        final_values = []
+        for n in value:
+            val, msg = self._cast_to_float_(n)
+            final_values.append(val)
+            if (msg != 'ok'):
+                self._sim_.print(self._get_error_header_()+msg)
+        self._value_ = final_values
 
     def check(self):
         errors = []
@@ -309,7 +375,11 @@ class Parameter_options_list(Parameter):
     @value.setter
     def value(self, value):
         if not isinstance(value, list):
-            self._value_ = [str(value)]
+            val, msg = self._cast_to_string_list_(value)
+            if (msg == 'ok'):
+                self._value_ = val
+            else:
+                self._sim_.print(self._get_error_header_()+msg)
         else:
             for el in value:
                 el = str(el)
@@ -397,11 +467,16 @@ class Parameter_component_list(Parameter):
     @value.setter
     def value(self, value):
         if not isinstance(value, list):
-            self._value_ = [str(value)]
-        else:
-            for el in value:
-                el = str(el)
-            self._value_ = value
+            val, msg = self._cast_to_string_list_(value)
+            value = val
+            if (msg != 'ok'):
+                self._sim_.print(self._get_error_header_()+msg)
+                return
+        # Is a list
+        for el in value:
+            el = str(el)
+        self._value_ = value
+
         self._external_ = []
         for el in self.value:
             if "->" in el:
@@ -532,11 +607,15 @@ class Parameter_variable_list(Parameter):
     @value.setter
     def value(self, value):
         if not isinstance(value, list):
-            self._value_ = [str(value)]
-        else:
-            for el in value:
-                el = str(el)
-            self._value_ = value
+            val, msg = self._cast_to_string_list_(value)
+            value = val
+            if (msg != 'ok'):
+                self._sim_.print(self._get_error_header_()+msg)
+                return
+        # Is a list
+        for el in value:
+            el = str(el)
+        self._value_ = value
 
         format_error = False
         self._symbol_ = []
@@ -652,11 +731,15 @@ class Parameter_math_exp_list(Parameter):
     @value.setter
     def value(self, value):
         if not isinstance(value, list):
-            self._value_ = [str(value)]
-        else:
-            for el in value:
-                el = str(el)
-            self._value_ = value
+            val, msg = self._cast_to_string_list_(value)
+            value = val
+            if (msg != 'ok'):
+                self._sim_.print(self._get_error_header_()+msg)
+                return
+        # Is a list
+        for el in value:
+            el = str(el)
+        self._value_ = value
 
     def check(self):
         errors = []

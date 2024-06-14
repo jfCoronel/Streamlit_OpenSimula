@@ -1,22 +1,21 @@
 import streamlit as st
 import json
 import OpenSimula as os
+from utils import project_list
 
+st.set_page_config(layout="wide")
 @st.cache_resource
 def create_sim():
     return os.Simulation()
 
-sim = create_sim()
+st.session_state.sim = create_sim()
+sim = st.session_state.sim
 if "count" not in st.session_state:
     st.session_state.count = 1
 if 'project_df' not in st.session_state:
     st.session_state.project_df = sim.project_dataframe(string_format=True) 
     
-def project_list():
-    list = []
-    for p in sim.project_list():
-        list.append(p.parameter("name").value)
-    return list
+
 
 def update_projects(start_df,edited_df):
     p_list = sim.project_list()
@@ -26,40 +25,47 @@ def update_projects(start_df,edited_df):
                 if start_df.loc[i,col_name] != edited_df.loc[i,col_name]:
                     p_list[i].parameter(col_name).value = edited_df.loc[i,col_name] 
 
-#def new_project():
-#    sim.new_project(st.session_state.project_name)
-    
-col1, col2, col3= st.columns((1,10,2))
+
+# Header
+col1, col2, col3= st.columns((1,9,3))
 col1.image('img/icon_opensimula.svg',width=48)
 col2.write('#### VisualOpenSimula')
-col3.write(f"Version: {os.VERSION}")
+col3.write(f"OpenSimula Version: {os.VERSION}")
 
 st.write('##### Projects Editor')
-actual_project = st.selectbox(
+
+col1, col2 = st.columns((5,5))
+actual_project = col1.selectbox(
    "Select working project:",
-   project_list()
-   ,
-   index=None,
+   project_list(st.session_state.sim),
+   key="actual_project",
    placeholder="Select project..",
 )
-
-#if st.button("Remove working project", type="primary"):
-#    sim.del_project(sim.project(actual_project))
-#    st.rerun()
-
-if st.button("Create empty project"):
-    sim.new_project(f"Empty project {st.session_state.count}")
-    st.session_state.count += 1
-    st.session_state.project_df = sim.project_dataframe(string_format=True)  
-
-uploaded_file = st.file_uploader("OpenSimular project file:")
+uploaded_file = col2.file_uploader("OpenSimular project file:")
 if uploaded_file is not None:
     raw_text = str(uploaded_file.read(),"utf-8")
     file_json = json.loads(raw_text)
     sim.new_project("json")
     sim.project("json").read_dict(file_json)
+    st.session_state.project_df = sim.project_dataframe(string_format=True)
+
+col1, col2, col3= st.columns((2,2,6))
+
+if col1.button("Create new project"):
+    sim.new_project(f"New project {st.session_state.count}")
+    st.session_state.count += 1
     st.session_state.project_df = sim.project_dataframe(string_format=True)  
-        
+    st.rerun()
+
+if col2.button("Remove working project", type="primary"):
+    sim.del_project(sim.project(actual_project))
+    st.session_state.project_df = sim.project_dataframe(string_format=True)
+    st.rerun()
+
+if actual_project is not None:
+    col3.download_button("Download working project file", json.dumps(st.session_state.sim.project(actual_project).write_dict()), file_name=actual_project+".json")    
+
+
 #def projects_change():
 #    ed_rows = st.session_state.project_edit["edited_rows"]
 #    print(ed_rows)
@@ -77,4 +83,4 @@ if len(sim.message_list()) > 0:
     st.write("_Opensimula messages:_")
     for i in sim.message_list():
         st.text(i)
-#st.json(st.session_state.project_edit)
+

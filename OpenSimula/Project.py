@@ -108,7 +108,7 @@ class Project(Parameter_container):
         """
         return self._sim_
 
-    def component_dataframe(self, type="all"):
+    def component_dataframe(self, type="all", string_format=False):
         data = pd.DataFrame()
         comp_list = self.component_list(type)
         if len(comp_list) > 0:
@@ -120,7 +120,10 @@ class Project(Parameter_container):
             for param in parameters:
                 param_array = []
                 for comp in comp_list:
-                    param_array.append(comp.parameter(param).value)
+                    if string_format:
+                        param_array.append(str(comp.parameter(param).value))
+                    else:
+                        param_array.append(comp.parameter(param).value)
                 data[param] = param_array
         return data
 
@@ -436,7 +439,7 @@ class Project(Parameter_container):
         for comp in self._ordered_component_list_:
             comp.post_iteration(time_index, date, dayligth_saving, converged)
 
-    def dates_array(self):
+    def dates(self):
         n = self.parameter("n_time_steps").value
         date = dt.datetime.strptime(
             self.parameter("initial_time").value, "%d/%m/%Y %H:%M:%S"

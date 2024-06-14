@@ -57,7 +57,7 @@ class Simulation:
         """
         return self._projects_
 
-    def project_dataframe(self,string_format=False):
+    def project_dataframe(self, string_format=False):
         data = pd.DataFrame()
         pro_list = self.project_list()
         parameters = []
