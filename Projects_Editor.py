@@ -3,32 +3,6 @@ import json
 import OpenSimula as osm
 from utils import project_list
 
-def update_projects(start_df,edited_df,sim):
-    if (start_df.shape[0] > edited_df.shape[0]):
-        for index_start, row_start in start_df.iterrows():
-            name = row_start["name"]
-            delete = True
-            for index_edited, row_edited in start_df.iterrows():
-                if name == row_edited["name"]:
-                    delete = False
-            if delete:
-                sim.del_project(name)    
-        st.session_state.project_df = sim.project_dataframe(string_format=True)
-    elif (start_df.shape[0] < edited_df.shape[0]):
-        sim.new_project(f"New project {st.session_state.count}")
-        st.session_state.count += 1
-        st.session_state.project_df = sim.project_dataframe(string_format=True)  
-        st.rerun()
-    else:
-        p_list = sim.project_list()
-        for i in range(len(p_list)):
-            for col_name, col in start_df.items():
-                if start_df.loc[i,col_name] != edited_df.loc[i,col_name]:
-                    p_list[i].parameter(col_name).value = edited_df.loc[i,col_name]
-        st.session_state.project_df = edited_project_df
-        st.rerun()
-
-
 st.set_page_config(layout="wide")
 @st.cache_resource
 def create_sim():
@@ -47,15 +21,11 @@ col1.image('img/icon_opensimula.svg',width=48)
 col2.write('#### VisualOpenSimula')
 col3.write(f"OpenSimula Version: {osm.VERSION}")
 
-st.write('##### Projects Editor')
-
 col1, col2 = st.columns((5,5))
-
-
 ## Upload File Form
 with st.form("my-form", clear_on_submit=True):
     uploaded_file = st.file_uploader("OpenSimular project file:",type="json")
-    submitted = st.form_submit_button("UPLOAD!")
+    submitted = st.form_submit_button("Upload",type="primary")
     if submitted and uploaded_file is not None:
         raw_text = str(uploaded_file.read(),"utf-8")
         file_json = json.loads(raw_text)
@@ -64,7 +34,6 @@ with st.form("my-form", clear_on_submit=True):
         st.session_state.project_df = sim.project_dataframe(string_format=True)
         st.rerun()
     
-
 edited_project_df = st.data_editor(st.session_state.project_df, key="project_edit")
 if not st.session_state.project_df.equals(edited_project_df):
     p_list = sim.project_list()
@@ -74,11 +43,8 @@ if not st.session_state.project_df.equals(edited_project_df):
                 p_list[i].parameter(col_name).value = edited_project_df.loc[i,col_name]
     st.session_state.project_df = edited_project_df
     st.rerun()
-    
 
-
-
-if st.button("Create new project"):
+if st.button("Create new project", type="primary"):
     sim.new_project(f"New project {st.session_state.count}")
     st.session_state.count += 1
     st.session_state.project_df = sim.project_dataframe(string_format=True)  
@@ -86,23 +52,16 @@ if st.button("Create new project"):
 
 col1, col2, col3,col4= st.columns((2,1,1,6))
 
-selected_project = col1.selectbox(
-   "Select project:",
-   project_list(st.session_state.sim),
-   key="actual_project",
-   placeholder="Select project..",
-)
-
+selected_project = col1.selectbox("Select project:",project_list(st.session_state.sim),key="selected_project",placeholder="Select project..")
 
 if selected_project is not None:
-    if col2.button("Remove", type="primary"):
+    if col2.button("Remove"):
         sim.del_project(sim.project(selected_project))
         st.session_state.project_df = sim.project_dataframe(string_format=True)
         st.rerun()
-    if col3.button("Check", type="primary"):
+    if col3.button("Check"):
         st.session_state.sim.project(selected_project).check()
     col4.download_button("Download project file", json.dumps(st.session_state.sim.project(selected_project).write_dict()), file_name=selected_project+".json")    
-    
 
 with st.container(height=250,border=True):
     if len(sim.message_list()) > 0:
